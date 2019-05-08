@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/sjeanpierre/datadog_synthetics_manager/lib"
+	"../lib"
 	"github.com/spf13/cobra"
 )
 
@@ -24,6 +24,10 @@ var checkPingdomCmd = &cobra.Command{
 	Use:   "checkPingdom",
 	Short: "checks Pingdom",
 	Run: func(cmd *cobra.Command, args []string) {
+		if len(args) > 0 {
+			lib.GetPingdomCheck(args[0])
+			return
+		}
 		lib.ListPingdomChecks()
 	},
 }

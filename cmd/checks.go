@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	"github.com/sjeanpierre/datadog_synthetics_manager/lib"
+	"../lib"
 
 	"github.com/spf13/cobra"
 )
