@@ -5,27 +5,44 @@ import (
 	"fmt"
 	"github.com/ghodss/yaml"
 	"gopkg.in/zorkian/go-datadog-api.v2"
+	"io/ioutil"
 	"log"
 	"os"
 )
 
+
 func ListSyntheticsChecks() {
 	c := datadog.NewClient(os.Getenv("SYNTH_MAN_DD_API_KEY"),os.Getenv("SYNTH_MAN_DD_APP_KEY"))
-	tests,err := c.GetSyntheticsTests()
+	checks,err := c.GetSyntheticsTests()
 	if err != nil {
 		log.Fatalf("Could not list synth checks %s",err)
 	}
-	for _, test := range tests {
-		fmt.Printf("%s | %s\n",*test.PublicId,*test.Name)
+	if len(checks) < 1 {
+		fmt.Println("No checks exist")
+	}
+	for _, check := range checks {
+		fmt.Printf("%s | %s | %s\n",*check.PublicId,*check.Name,*check.Status)
 	}
 }
 
+func GetSyntheticsCheck(publicID string) {
+	c := datadog.NewClient(os.Getenv("SYNTH_MAN_DD_API_KEY"),os.Getenv("SYNTH_MAN_DD_APP_KEY"))
+	check,err := c.GetSyntheticsTest(publicID)
+	if err != nil {
+		log.Fatalf("Could not get synth checks %s",err)
+	}
+	if check == nil {
+		fmt.Println("could not locate check with public ID of ",publicID)
+	}
+		fmt.Printf("%s | %s | %s\n",*check.PublicId,*check.Name,*check.Status)
+}
+
 // Encountered issue with provided struct from DD lib where only JSON tags were present as struct tags
-// We want to provide users the ability to use YAML for their config due to the readiblity
+// We want to provide users the ability to use YAML for their config due to the readability
 // Without YAML struct tags, there would be no easy way to get our YAML data into the needed struct
-// According to http://ghodss.com/2014/the-right-way-to-handle-yaml-in-golang/ we can conver the YAML bytes to JSON
-// then unmarshall the json as needed into the struct. This seems to work.
-func YAMLtoStruct(data []byte) (datadog.SyntheticsTest,error) {
+// According to http://ghodss.com/2014/the-right-way-to-handle-yaml-in-golang/ we can convert the YAML bytes to JSON
+// then unmarshal the json as needed into the struct. This seems to work.
+func YAMLtoSynth(data []byte) (datadog.SyntheticsTest,error) {
 	//fmt.Printf(string(data))
 	var dataStruct datadog.SyntheticsTest
 	//err := yaml.Unmarshal(data, &datadog.SyntheticsTest{})
@@ -50,4 +67,12 @@ func UpdateSyntheticsTest(test datadog.SyntheticsTest) (datadog.SyntheticsTest, 
 		return test, fmt.Errorf("encountered error updating synthetics %s",err)
 	}
 	return *t,nil
+}
+
+func ReadFile(f string) (m []byte) {
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		log.Fatalf("error reading file %s, %s",f,err)
+	}
+	return data
 }

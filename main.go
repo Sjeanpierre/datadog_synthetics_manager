@@ -2,16 +2,21 @@ package main
 
 import (
 	"fmt"
+	"github.com/sjeanpierre/datadog_synthetics_manager/cmd"
 	"github.com/sjeanpierre/datadog_synthetics_manager/lib"
 	"io/ioutil"
 	"log"
 )
 
 func main() {
+	cmd.Execute()
+}
+
+func run() {
 	lib.ListSyntheticsChecks()
 	fmt.Println("done")
 	d := readFile("./data/api-app.example.com.yml")
-	dd,err := lib.YAMLtoStruct(d)
+	dd,err := lib.YAMLtoSynth(d)
 	if err != nil {
 		log.Printf("it's broken %s",err)
 	}
@@ -23,7 +28,6 @@ func main() {
 	}
 	fmt.Printf("%+v",ddd)
 }
-
 
 func readFile(f string) (m []byte) {
 	data, err := ioutil.ReadFile(f)
