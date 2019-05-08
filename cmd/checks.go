@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"../lib"
-
 	"github.com/spf13/cobra"
 )
 

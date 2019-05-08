@@ -5,8 +5,13 @@ import (
 	"io/ioutil"
 	"log"
 
+<<<<<<< HEAD
 	"./cmd"
 	"./lib"
+=======
+	"github.com/sjeanpierre/datadog_synthetics_manager/cmd"
+	"github.com/sjeanpierre/datadog_synthetics_manager/lib"
+>>>>>>> edbe8078564d4d452eb18b9a16ff1d74074d1bca
 )
 
 func main() {

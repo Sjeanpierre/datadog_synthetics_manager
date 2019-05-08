@@ -28,6 +28,7 @@ var checkPingdomCmd = &cobra.Command{
 			lib.GetPingdomCheck(args[0])
 			return
 		}
+
 		lib.ListPingdomChecks()
 	},
 }
