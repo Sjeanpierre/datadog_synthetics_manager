@@ -39,5 +39,11 @@ func singleCheck(file string) {
 		return
 	}
 	//we are creating a new check here
-	log.Println("NOT YET IMPLEMENTED")
+	check, err := lib.CreateSyntheticsTest(synth)
+	if err != nil {
+		fmt.Printf("encountered issue creating Synthetics check, error %s", err)
+		return
+	}
+	fmt.Println("New Synthetic created from",file)
+	fmt.Printf("%s | %s | %s\n", *check.PublicId, *check.Name, *check.Status)
 }
