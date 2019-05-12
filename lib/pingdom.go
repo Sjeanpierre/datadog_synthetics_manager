@@ -9,7 +9,7 @@ import (
 	"log"
 	"net/url"
 	"os"
-	"strconv"
+	"sync"
 
 	"github.com/russellcardullo/go-pingdom/pingdom"
 )
@@ -24,9 +24,11 @@ var (
 	defaultAssertion = datadog.SyntheticsAssertion{Operator: Stringp("is"), Type: Stringp("statusCode"), Target: 200}
 )
 
-// ListPingdomChecks lists checks from pingdom
+// ListPingdomChecks lists checks from pingdom - this is only a lightweight list, and does not contain full check details
+// if full check details are desired, use the GetPingdomChecks function.
 func ListPingdomChecks() (checks []pingdom.CheckResponse, e error) {
-	client := pingdom.NewMultiUserClient(PingdomUser, PingdomPassword, PingdomAPIKey, PingdomAccountEmail)
+
+	client, _ := pingdom.NewClientWithConfig(pingdom.ClientConfig{User: PingdomUser, Password: PingdomPassword, APIKey: PingdomAPIKey, AccountEmail: PingdomAccountEmail})
 	c, err := client.Checks.List()
 	if err != nil {
 		return checks, fmt.Errorf("Could not get checks: %s\n", err)
@@ -34,22 +36,52 @@ func ListPingdomChecks() (checks []pingdom.CheckResponse, e error) {
 	return c, nil
 }
 
-func GetPingdomCheck(id string) (checks []pingdom.CheckResponse, e error) {
-	client := pingdom.NewMultiUserClient(PingdomUser, PingdomPassword, PingdomAPIKey, PingdomAccountEmail)
-	checkID, err := strconv.Atoi(id)
-	if err != nil {
-		return checks, fmt.Errorf("check ID can only be an integer")
+func GetPingdomChecks(ids []int) []pingdom.CheckResponse {
+	var checks []pingdom.CheckResponse
+	var wg sync.WaitGroup
+	checkDetailChan := make(chan pingdom.CheckResponse, len(ids))
+	for _, id := range ids {
+		wg.Add(1)
+		go func(checkID int, x *sync.WaitGroup) {
+			defer x.Done()
+			check, err := GetPingdomCheckDetail(checkID)
+			if err != nil {
+				log.Printf("failed to retrieve check %d, error: %s", checkID, err)
+				return
+			}
+			checkDetailChan <- check
+		}(id, &wg)
 	}
-	check, err := client.Checks.Read(checkID)
-	if err != nil {
-		return checks, fmt.Errorf("Could not get check %s: %s\n", id, err)
+	wg.Wait()
+	close(checkDetailChan)
+	for c := range checkDetailChan {
+		checks = append(checks, c)
 	}
-	checks = append(checks, *check)
+	return checks
+}
+
+func GetPingdomCheck(checkID int) (checks []pingdom.CheckResponse, e error) {
+	check, err := GetPingdomCheckDetail(checkID)
+	if err != nil {
+		return checks, fmt.Errorf("Could not get check %d: %s\n", checkID, err)
+	}
+	checks = append(checks, check)
 	return checks, nil
 }
 
-func CheckDownload(checks []pingdom.CheckResponse) error {
+func GetPingdomCheckDetail(checkID int) (pingdom.CheckResponse, error) {
+	client, _ := pingdom.NewClientWithConfig(pingdom.ClientConfig{User: PingdomUser, Password: PingdomPassword, APIKey: PingdomAPIKey, AccountEmail: PingdomAccountEmail})
+	check, err := client.Checks.Read(checkID)
+	if err != nil {
+		return *check, fmt.Errorf("Could not get check %d: %s\n", checkID, err)
+	}
+	return *check, nil
+}
+
+func DownloadCheck(checks []pingdom.CheckResponse) error {
+	fmt.Printf("Found %d checks to download\n", len(checks))
 	for _, check := range checks {
+		fmt.Printf("Downloading check %d\n", check.ID)
 		synthCheck, err := pingdomToSynthetics(check)
 		if err != nil {
 			log.Printf("could not download Pingdom check %d, encoutered error %s", check.ID, err)
@@ -59,7 +91,7 @@ func CheckDownload(checks []pingdom.CheckResponse) error {
 			log.Println(err)
 			continue
 		}
-		fmt.Printf("files %s written to disk", filePath)
+		fmt.Printf("file(s) %s written to disk\n", filePath)
 	}
 	return nil
 }
@@ -123,7 +155,7 @@ func pingdomToSynthetics(check pingdom.CheckResponse) (datadog.SyntheticsTest, e
 	s.Type = Stringp("api")
 	so := datadog.SyntheticsOptions{TickEvery: Intp(check.Resolution * 60), MinFailureDuration: Intp(60 * check.SendNotificationWhenDown)}
 	headers := map[string]string(check.Type.HTTP.RequestHeaders)
-	url := fmt.Sprintf("%s://%s%s", protocol(check.Type.HTTP.Port), check.Hostname, check.Type.HTTP.Url)
+	uri := fmt.Sprintf("%s://%s%s", protocol(check.Type.HTTP.Port), check.Hostname, check.Type.HTTP.Url)
 	tags, err := convertTags(check.Tags)
 	if err != nil {
 		return s, fmt.Errorf("could not process tags from Pingdom check. %s", err)
@@ -132,7 +164,7 @@ func pingdomToSynthetics(check pingdom.CheckResponse) (datadog.SyntheticsTest, e
 	s.Tags = tags
 	s.Locations = getLocations(check.ProbeFilters)
 	//todo, translate assertions from the shouldcontain logic in the pingdom response
-	sr := datadog.SyntheticsRequest{Url: &url,
+	sr := datadog.SyntheticsRequest{Url: &uri,
 		Method:  Stringp("GET"),
 		Timeout: Intp(check.ResponseTimeThreshold / 1000),
 		Headers: headers,
