@@ -1,12 +1,12 @@
 package cmd
 
 import (
-	"github.com/sjeanpierre/datadog_synthetics_manager/lib"
-
+	"../lib"
 	"github.com/spf13/cobra"
 )
 
 // listCmd represents the list command
+// todo, add flag for specifing ID instead of positional argument
 var checksCmd = &cobra.Command{
 	Use:   "checks",
 	Short: "List Synthetic checks in Account",

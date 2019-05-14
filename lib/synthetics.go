@@ -69,6 +69,15 @@ func UpdateSyntheticsTest(test datadog.SyntheticsTest) (datadog.SyntheticsTest, 
 	return *t,nil
 }
 
+func CreateSyntheticsTest(test datadog.SyntheticsTest) (datadog.SyntheticsTest, error) {
+	c := datadog.NewClient(os.Getenv("SYNTH_MAN_DD_API_KEY"),os.Getenv("SYNTH_MAN_DD_APP_KEY"))
+	t, err := c.CreateSyntheticsTest(&test)
+	if err != nil {
+		return test, fmt.Errorf("encountered error creating synthetics %s",err)
+	}
+	return *t,nil
+}
+
 func ReadFile(f string) (m []byte) {
 	data, err := ioutil.ReadFile(f)
 	if err != nil {
